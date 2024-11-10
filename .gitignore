@@ -1,0 +1,5 @@
+prog1_mandelbrot_threads/objs
+*.ppm
+*.png
+prog1_mandelbrot_threads/mandelbrot
+.vscode

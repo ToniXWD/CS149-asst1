@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <getopt.h>
 
-#include "CycleTimer.h"
+#include "../common/CycleTimer.h"
 
 extern void mandelbrotSerial(
     float x0, float y0, float x1, float y1,
@@ -81,13 +81,17 @@ int main(int argc, char** argv) {
     // parse commandline options ////////////////////////////////////////////
     int opt;
     static struct option long_options[] = {
-        {"threads", 1, 0, 't'},
+        {"threads", 1, 0, 't'}, // 长选项名，需要参数，flag=0, 对应短选项't'
         {"view", 1, 0, 'v'},
         {"help", 0, 0, '?'},
-        {0 ,0, 0, 0}
+        {0 ,0, 0, 0} // 数组结束标志
     };
 
     while ((opt = getopt_long(argc, argv, "t:v:?", long_options, NULL)) != EOF) {
+        // 最后一个参数 longindex 的作用
+        // 如果不为 NULL，它会存储当前找到的长选项在 long_options 数组中的索引
+        // 如果设为 NULL，表示我们不关心这个索引值
+        // 这个参数主要用于需要知道具体匹配了哪个长选项的场景
 
         switch (opt) {
         case 't':
