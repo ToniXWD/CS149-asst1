@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <thread>
+#include <algorithm>
 
 #include "../common/CycleTimer.h"
 
@@ -29,28 +30,28 @@ extern void mandelbrotSerial(
 // Thread entrypoint.
 void workerThreadStart(WorkerArgs * const args) {
 
-    // TODO FOR CS149 STUDENTS: Implement the body of the worker
-    // thread here. Each thread should make a call to mandelbrotSerial()
-    // to compute a part of the output image.  For example, in a
-    // program that uses two threads, thread 0 could compute the top
-    // half of the image and thread 1 could compute the bottom half.
-
-    int row_num_per_t = args->height / args->numThreads;
-    int start_row = args->threadId * row_num_per_t;
-    int end_row = start_row + row_num_per_t;
-
-    // 行的范围：[start_row, end_row)
-
-    if (args->threadId==args->numThreads-1) {
-        end_row = args->height;
-    }
-    
     double t_startTime = CycleTimer::currentSeconds();
 
-    mandelbrotSerial(args->x0, args->y0, args->x1, args->y1, args->width, args->height, start_row, end_row-start_row, args->maxIterations, args->output);
+    const unsigned int CHUNK_SIZE = 16;  // 或 8、32 等，需要测试最优值
+    
+    // 每次处理多行，减少函数调用开销
+    for (unsigned int cur_row = args->threadId * CHUNK_SIZE; 
+         cur_row < args->height; 
+         cur_row += args->numThreads * CHUNK_SIZE) {
+        
+        // 确保不会越界
+        int numRows = std::min(CHUNK_SIZE, 
+                             args->height - cur_row);
+        
+        mandelbrotSerial(args->x0, args->y0, args->x1, args->y1,
+                        args->width, args->height,
+                        cur_row, numRows,
+                        args->maxIterations, args->output);
+    }
 
     double t_endTime = CycleTimer::currentSeconds();
-    printf("Thread %d: [%.3f] ms\n", args->threadId, (t_endTime - t_startTime) * 1000);
+    printf("Thread %d: [%.3f] ms\n", args->threadId,    
+           (t_endTime - t_startTime) * 1000);
 }
 
 //
