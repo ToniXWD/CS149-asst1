@@ -320,11 +320,23 @@ float arraySumVector(float* values, int N) {
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
+
+  __cs149_vec_float v_sum;
+  __cs149_mask mask_one = _cs149_init_ones(VECTOR_WIDTH); // 1 的 mask
+  _cs149_vset_float(v_sum, 0.f, mask_one);
+
+  __cs149_vec_float v_elems;
   
   for (int i=0; i<N; i+=VECTOR_WIDTH) {
-
+    _cs149_vload_float(v_elems, values+i, mask_one); // 从 values[i] 开始，加载 VECTOR_WIDTH 个元素到 v_elems
+    _cs149_vadd_float(v_sum, v_sum, v_elems, mask_one); // 将 v_elems 加到 v_sum 上
   }
 
-  return 0.0;
+  float sum = 0.f;
+  for (int i=0; i<VECTOR_WIDTH; i++) {
+    sum += v_sum.value[i];
+  }
+
+  return sum;
 }
 
