@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 void sqrtSerial(int N,
                 float initialGuess,
                 float values[],
@@ -26,4 +25,3 @@ void sqrtSerial(int N,
         output[i] = x * guess;
     }
 }
-
