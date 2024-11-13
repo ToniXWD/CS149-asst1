@@ -108,6 +108,49 @@ You will not need to make use of any other std::thread API calls in this assignm
   and report the final 8-thread speedup obtained. 
 5. Now run your improved code with 16 threads. Is performance noticably greater than when running with eight threads? Why or why not? 
   
+答案：
+1. 很简单，就是简单的并发编程，参考 [ref](https://github.com/ToniXWD/CS149-asst1/commit/73388d96d408884d29ec2665e31d796132e8b81b)
+2. 结果：
+   | 线程数 | 时间 | 利用率 | 
+   |:--|:--|:--|
+   | 1	| 1	| 1	|
+   | 2	| 1.96	| 1.64	|
+   | 3	| 1.61	| 2.08	|
+   | 4	| 2.34	| 2.4	|
+   | 5	| 2.4	| 2.78	|
+   | 6	| 3.18	| 3.11	|
+   | 7	| 3.28	| 3.53	|
+   | 8	| 3.81	| 3.87	|
+   
+   ![Result1](image.png)
+
+   利用率不足的原因是不同线程负责的图像区域迭代的计算量不同，导致计算时间不同，出现了短板效应。3 线程中中间部分的计算时间明细大于上下两边，导致时间增加。
+3. 以 t=3 为例，输出如下：
+   ```bash
+   $ ./mandelbrot -t 3
+    [mandelbrot serial]:            [282.544] ms
+    Wrote image file mandelbrot-serial.ppm
+    Thread 0: [57.570] ms
+    Thread 2: [59.159] ms
+    Thread 1: [176.854] ms
+    Thread 2: [56.701] ms
+    Thread 0: [56.825] ms
+    Thread 1: [175.035] ms
+    Thread 0: [56.324] ms
+    Thread 2: [57.591] ms
+    Thread 1: [176.025] ms
+    Thread 0: [59.012] ms
+    Thread 2: [59.654] ms
+    Thread 1: [180.582] ms
+    Thread 0: [56.932] ms
+    Thread 2: [57.607] ms
+    Thread 1: [176.718] ms
+    [mandelbrot thread]:            [175.223] ms
+    Wrote image file mandelbrot-thread.ppm
+                                (1.61x speedup from 3 threads)
+   ```
+4. 很简单，让每个线程按照一定间隔计算多块区域，这样每个线程的计算量被平均了，不会出现短板效应。代码参考 [ref](https://github.com/ToniXWD/CS149-asst1/commit/b6cbed8bd683c932eda499ad7fc3d5b0caedf65a)
+5. t=16 时，利用率为 10.51，因为我的 CPU 是 10 核 16 线程的 12600k, 但当 t=32 时，利用率为 10.50，没有提升，因为此时实际硬件线程数量只有 16 个，所以多出的线程只能徒增上下文切换的负担。
 ## Program 2: Vectorizing Code Using SIMD Intrinsics (20 points) ##
 
 Take a look at the function `clampedExpSerial` in `prog2_vecintrin/main.cpp` of the
@@ -143,6 +186,19 @@ should work with any combination of input array size (`N`) and vector width (`VE
 utilization. You can do this by changing the `#define VECTOR_WIDTH` value in `CS149intrin.h`. 
 Does the vector utilization increase, decrease or stay the same as `VECTOR_WIDTH` changes? Why?
 3.  _Extra credit: (1 point)_ Implement a vectorized version of `arraySumSerial` in `arraySumVector`. Your implementation may assume that `VECTOR_WIDTH` is a factor of the input array size `N`. Whereas the serial implementation runs in `O(N)` time, your implementation should aim for runtime of `(N / VECTOR_WIDTH + VECTOR_WIDTH)` or even `(N / VECTOR_WIDTH + log2(VECTOR_WIDTH))`  You may find the `hadd` and `interleave` operations useful.
+
+答案：
+1. 参考 [ref](prog2_vecintrin/main.cpp#L243)
+2. 结果：
+   | VECTOR_WIDTH | 利用率 |
+   |:--|:--|
+   | 2	| 85.3%	|
+   | 4	| 81.3%	|
+   | 8	| 79.0%	|
+   | 16	| 77.7%	|
+   
+   利用率肯定是随着 `VECTOR_WIDTH` 增长而减少的，因为随着 `VECTOR_WIDTH` 增长，每次计算的元素数量增加，导致迭代次数最多的那一个元素相较于平均的差异越大，导致利用率越低。
+3. 参考 [ref](prog2_vecintrin/main.cpp#L318)
 
 ## Program 3: Parallel Fractal Generation Using ISPC (20 points) ##
 
@@ -276,6 +332,18 @@ the foreach loop to yield a more straightforward implementation.
 
 If you look into detailed technical material about the CPUs in the myth machines, you will find there are a complicated set of rules about how many scalar and vector instructions can be run per clock.  For the purposes of this assignment, you can assume that there are about as many 8-wide vector execution units as there are scalar execution units for floating point math.   
 
+答案：
+1. 结果：
+   ```bash
+   $ ./mandelbrot_ispc
+      [mandelbrot serial]:            [138.712] ms
+      Wrote image file mandelbrot-serial.ppm
+      [mandelbrot ispc]:              [40.217] ms
+      Wrote image file mandelbrot-ispc.ppm
+                                      (3.45x speedup from ISPC)
+    ```
+    原因在于出现黑白过渡的区域时，掩码不同通道的计算量不同，导致远远达不到 8 倍利用率。
+
 ### Program 3, Part 2: ISPC Tasks (10 of 20 points) ###
 
 ISPCs SPMD execution model and mechanisms like `foreach` facilitate the creation
@@ -322,6 +390,21 @@ cores?
 _Answer_: Great question! And there are a lot of possible answers. Come to
 office hours.
 
+答案：
+1. 结果：
+   ```bash
+   $ ./mandelbrot_ispc --tasks
+      [mandelbrot serial]:            [142.173] ms
+      Wrote image file mandelbrot-serial.ppm
+      [mandelbrot ispc]:              [40.064] ms
+      Wrote image file mandelbrot-ispc.ppm
+      [mandelbrot multicore ispc]:    [5.939] ms
+      Wrote image file mandelbrot-task-ispc.ppm
+                                      (3.55x speedup from ISPC)
+                                      (23.94x speedup from task ISPC)
+    ```
+2. 将`task`数量设置为本机最大硬件线程数，可以获得最佳利用率。
+3. `task`实际上会尽量均匀分配给硬件线程，所以当任务数量小于硬件线程数量时，随着任务数量增加，利用率会逐渐增加，当任务数量大于硬件线程数量时，反而会因为上下文切换导致利用率降低。
 ## Program 4: Iterative `sqrt` (15 points) ##
 
 Program 4 is an ISPC program that computes the square root of 20 million
@@ -353,7 +436,32 @@ Note: This problem is a review to double-check your understanding, as it covers 
     implementation should be nearly as fast (or faster) than the binary 
     produced using ISPC. You may find the [Intel Intrinsics Guide](https://software.intel.com/sites/landingpage/IntrinsicsGuide/) 
     very helpful.
- 
+
+答案：
+1. 结果：
+   ```bash
+   (base) toni@DESKTOP-59EELP2:prog4_sqrt$ ./sqrt
+    [sqrt serial]:          [633.737] ms
+    [sqrt ispc]:            [170.368] ms
+    [sqrt task ispc]:       [14.496] ms
+                                    (3.72x speedup from ISPC)
+                                    (43.72x speedup from task ISPC)
+   ```
+2. 如下初始化数据
+   ```cpp
+   values[i] = .5f + 2.0f * static_cast<float>(rand()) / RAND_MAX; // Q2
+   ```
+   这样的目的是使得各个计算的迭代次数尽可能接近，从而提高 SIMD 的利用率，数据的选择根据前文的折线图确定。
+3. 如下初始化数据
+   ```cpp
+   if (i % 8 == 0) {
+        values[i] = 2; 
+    } else {
+        values[i] = 1; 
+    }
+   ```
+   8 个计算的 SIMD 通道中，选择 1 个与其他的迭代次数不一致，且不一致的程度越大越好，从而降低 SIMD 的利用率，数据的选择根据前文的折线图确定。
+
 ## Program 5: BLAS `saxpy` (10 points) ##
 
 Program 5 is an implementation of the saxpy routine in the BLAS (Basic Linear
@@ -376,6 +484,10 @@ elements used. `saxpy` is a *trivially parallelizable computation* and features 
 
 Notes: Some students have gotten hung up on this question (thinking too hard) in the past. We expect a simple answer, but the results from running this problem might trigger more questions in your head.  Feel encouraged to come talk to the staff.
 
+答案：
+1. 使用`task`加速并不明显，因为主要的限制是内存带宽不足
+2. 读取和写入`result`需要 2 次内存访问，而读取`X`和`Y`各需要 1 次内存访问，所以总内存访问次数为 4N。
+3. TODO: 并没有找到明显的优化方法
 ## Program 6: Making `K-Means` Faster (15 points) ##
 
 Program 6 clusters one million data points using the K-Means data clustering algorithm ([Wikipedia](https://en.wikipedia.org/wiki/K-means_clustering), [CS 221 Handout](https://stanford.edu/~cpiech/cs221/handouts/kmeans.html)). If you're unfamiliar with the algorithm, don't worry! The specifics aren't important to the exercise, but at a high level, given K starting points (cluster centroids), the algorithm iteratively updates the centroids until a convergence criteria is met. The results can be seen in the below images depicting the state of the algorithm at the beginning and end of the program, where red stars are cluster centroids and the data point colors correspond to cluster assignments.
