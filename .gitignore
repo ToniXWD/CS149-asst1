@@ -1,3 +1,4 @@
 prog1_mandelbrot_threads/objs
 prog1_mandelbrot_threads/mandelbrot
 .vscode
+*.ppm
